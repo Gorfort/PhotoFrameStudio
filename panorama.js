@@ -1,5 +1,5 @@
 (() => {
-const { clamp, drawImageToArea, safeNumber, setupDropzone, triggerDownloadFromCanvas } = window.PhotoUtils;
+const { clamp, drawImageToArea, safeNumber, setupDropzone, setupGridToggle, triggerDownloadFromCanvas } = window.PhotoUtils;
 
 const acceptedTypes = new Set(["image/jpeg", "image/png", "image/jpg", "image/pjpeg", "image/x-png"]);
 
@@ -13,6 +13,13 @@ function isSupportedImageFile(file) {
   return /\.(jpe?g|png)$/.test(name);
 }
 
+function buildFileKey(file) {
+  const name = String(file.name || "").toLowerCase();
+  const size = Number(file.size || 0);
+  const modified = Number(file.lastModified || 0);
+  return `${name}::${size}::${modified}`;
+}
+
 const elements = {
   dropzone: document.querySelector("#dropzone"),
   fileInput: document.querySelector("#fileInput"),
@@ -20,6 +27,7 @@ const elements = {
   loadStatus: document.querySelector("#loadStatus"),
   selectedMeta: document.querySelector("#selectedMeta"),
   itemCount: document.querySelector("#itemCount"),
+  gridToggle: document.querySelector("#gridToggle"),
   emptyState: document.querySelector("#emptyState"),
   stage: document.querySelector("#stage"),
   stripCanvas: document.querySelector("#stripCanvas"),
@@ -43,6 +51,7 @@ const elements = {
 
 const state = {
   imageFile: null,
+  imageFileKey: null,
   image: null,
   offsetX: 0,
   offsetY: 0,
@@ -123,6 +132,19 @@ async function addFiles(files) {
     return;
   }
 
+  const incomingKey = buildFileKey(firstValid);
+  if (state.image && state.imageFileKey && state.imageFileKey === incomingKey) {
+    state.lastMessage = "This image is already loaded.";
+    if (elements.loadStatus) {
+      elements.loadStatus.textContent = `Skipped duplicate: ${firstValid.name} is already loaded.`;
+    }
+    if (elements.fileNameText) {
+      elements.fileNameText.textContent = firstValid.name;
+    }
+    render();
+    return;
+  }
+
   try {
     if (elements.fileNameText) {
       elements.fileNameText.textContent = firstValid.name;
@@ -132,6 +154,7 @@ async function addFiles(files) {
     }
     const image = await loadImageFromFile(firstValid);
     state.imageFile = firstValid;
+    state.imageFileKey = incomingKey;
     state.image = image;
     state.offsetX = 0;
     state.offsetY = 0;
@@ -228,17 +251,22 @@ function renderFrames() {
     wrapper.className = "preview-item";
 
     const frameCanvas = sliceFrame(index);
+    const canvasWrap = document.createElement("div");
+    canvasWrap.className = "preview-canvas-wrap";
+    canvasWrap.append(frameCanvas);
 
     const caption = document.createElement("div");
     caption.className = "preview-caption";
     caption.textContent = `Frame ${index + 1}`;
 
-    wrapper.append(frameCanvas, caption);
+    wrapper.append(canvasWrap, caption);
     elements.framesList.append(wrapper);
   }
 }
 
 function render() {
+  const config = getConfig();
+  elements.stage.style.setProperty("--cut-count", String(config.numFrames));
   drawStrip(elements.stripCanvas);
 
   const hasImage = Boolean(state.image);
@@ -256,7 +284,6 @@ function render() {
   elements.scale.disabled = !hasImage;
 
   if (hasImage) {
-    const config = getConfig();
     elements.selectedMeta.textContent = `${state.imageFile?.name || "panorama"} · ${Math.round(state.scale * 100)}% zoom · X ${Math.round(state.offsetX)} · Y ${Math.round(state.offsetY)}`;
     elements.itemCount.textContent = `${config.numFrames} frame${config.numFrames === 1 ? "" : "s"}`;
   } else {
@@ -268,6 +295,7 @@ function render() {
 }
 
 function bindEvents() {
+  setupGridToggle(elements.gridToggle);
   setupDropzone(elements.dropzone, elements.fileInput, addFiles);
 
   const sharedInputs = [
@@ -322,6 +350,7 @@ function bindEvents() {
   elements.clear.addEventListener("click", () => {
     state.image = null;
     state.imageFile = null;
+    state.imageFileKey = null;
     state.lastMessage = "";
     if (elements.fileNameText) {
       elements.fileNameText.textContent = "No file selected.";
