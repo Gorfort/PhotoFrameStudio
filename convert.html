@@ -75,15 +75,18 @@
               <input id="scale" type="range" min="0.2" max="3" step="0.01" value="1" />
             </div>
           </div>
+
+          <div class="placement-actions">
+            <button id="centerHorizontal" class="secondary" disabled>Center horizontal</button>
+            <button id="centerVertical" class="secondary" disabled>Center vertical</button>
+            <button id="resetSelected" class="secondary" disabled>Reset selected placement</button>
+          </div>
         </div>
 
         <div class="actions">
-          <button id="downloadSelected" disabled>Download selected</button>
-          <button id="downloadAll" disabled>Download all</button>
-          <button id="centerHorizontal" class="secondary" disabled>Center horizontal</button>
-          <button id="centerVertical" class="secondary" disabled>Center vertical</button>
-          <button id="resetSelected" class="secondary" disabled>Reset selected placement</button>
-          <button id="clearAll" class="secondary" disabled>Clear all</button>
+          <button id="downloadSelected" class="utility-button download-action" disabled>Download selected</button>
+          <button id="downloadAll" class="utility-button download-action" disabled>Download all</button>
+          <button id="clearAll" class="utility-button clear-action" disabled>Clear all</button>
         </div>
       </section>
 
@@ -91,11 +94,14 @@
         <div class="suite-header">
           <div id="selectedMeta" class="note">No image selected.</div>
           <div id="itemCount" class="note">0 image</div>
+          <button id="gridToggle" type="button" class="grid-toggle">Hide grid</button>
         </div>
         <div id="emptyState" class="note">No images loaded yet.</div>
         <div class="suite-workspace">
           <div id="activeStage" class="canvas-stage hidden">
-            <canvas id="activeCanvas" width="1080" height="1350"></canvas>
+            <div class="canvas-grid-wrap">
+              <canvas id="activeCanvas" width="1080" height="1350"></canvas>
+            </div>
           </div>
           <aside class="side-gallery">
             <div id="previewList" class="preview-list preview-stack"></div>
