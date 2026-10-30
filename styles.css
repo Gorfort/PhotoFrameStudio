@@ -10,6 +10,7 @@
   --radius: 16px;
   --theme-duration: 240ms;
   --theme-ease: cubic-bezier(0.25, 0.9, 0.3, 1);
+  --composition-grid-line: rgba(21, 33, 31, 0.38);
   --inspector-bg-start: #f6f2e8;
   --inspector-bg-end: #ece6d8;
   --inspector-border: rgba(21, 33, 31, 0.16);
@@ -43,6 +44,7 @@
   --inspector-secondary-text: #dce8e4;
   --inspector-secondary-border: rgba(232, 239, 233, 0.2);
   --inspector-actions-fade: rgba(18, 26, 25, 0.95);
+  --composition-grid-line: rgba(232, 239, 233, 0.36);
 }
 
 * {
@@ -265,6 +267,42 @@ html[data-theme-ready="true"] button {
   min-height: 34px;
 }
 
+.utility-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.placement-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.utility-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--inspector-input-border);
+  background: linear-gradient(180deg, rgba(31, 122, 114, 0.22), rgba(31, 122, 114, 0.08));
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.utility-button.download-action {
+  color: #67c99a;
+}
+
+.utility-button.clear-action {
+  color: #ee7b7b;
+}
+
 .browse-button {
   display: inline-flex;
   align-items: center;
@@ -403,6 +441,19 @@ input[type="range"] {
   background: linear-gradient(180deg, rgba(0, 0, 0, 0), var(--inspector-actions-fade) 45%);
 }
 
+.actions .utility-button {
+  width: 100%;
+}
+
+.panorama-actions .utility-button {
+  white-space: normal;
+  line-height: 1.1;
+  height: auto;
+  min-height: 32px;
+  padding: 5px 6px;
+  font-size: 0.76rem;
+}
+
 button {
   border: 1px solid transparent;
   background: var(--accent-2);
@@ -459,12 +510,73 @@ button:disabled {
   min-height: 20px;
 }
 
+.grid-toggle {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.74rem;
+  flex: 0 0 auto;
+}
+
 .canvas-stage {
+  position: relative;
   display: grid;
   place-items: center;
   border: 1px dashed var(--line);
   border-radius: 12px;
   background: var(--paper);
+  overflow: hidden;
+}
+
+.canvas-grid-wrap {
+  display: inline-block;
+  position: relative;
+  width: fit-content;
+  line-height: 0;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.canvas-grid-wrap canvas {
+  display: block;
+}
+
+.canvas-grid-wrap::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+  background:
+    linear-gradient(to right, transparent 33.333%, var(--composition-grid-line) 33.333%, var(--composition-grid-line) calc(33.333% + 1px), transparent calc(33.333% + 1px)),
+    linear-gradient(to right, transparent 66.666%, var(--composition-grid-line) 66.666%, var(--composition-grid-line) calc(66.666% + 1px), transparent calc(66.666% + 1px)),
+    linear-gradient(to bottom, transparent 33.333%, var(--composition-grid-line) 33.333%, var(--composition-grid-line) calc(33.333% + 1px), transparent calc(33.333% + 1px)),
+    linear-gradient(to bottom, transparent 66.666%, var(--composition-grid-line) 66.666%, var(--composition-grid-line) calc(66.666% + 1px), transparent calc(66.666% + 1px));
+}
+
+#stage {
+  --cut-count: 3;
+}
+
+#stage .cut-guides-wrap::after {
+  background: repeating-linear-gradient(
+    to right,
+    transparent,
+    transparent calc((100% / var(--cut-count)) - 1px),
+    var(--composition-grid-line) calc((100% / var(--cut-count)) - 1px),
+    var(--composition-grid-line) calc(100% / var(--cut-count))
+  );
+}
+
+html[data-composition-grid="off"] .canvas-grid-wrap::after {
+  display: none;
+}
+
+html[data-composition-grid="off"] .preview-canvas-wrap::after {
+  display: none;
 }
 
 .canvas-stage canvas {
@@ -534,6 +646,7 @@ button:disabled {
 }
 
 .preview-item {
+  position: relative;
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: 6px;
@@ -547,9 +660,31 @@ button:disabled {
 }
 
 .preview-item canvas {
+  display: block;
   width: 100%;
   border-radius: 7px;
   background: #fff;
+}
+
+.preview-canvas-wrap {
+  display: block;
+  position: relative;
+  width: 100%;
+  line-height: 0;
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+.preview-canvas-wrap::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(to right, transparent 33.333%, var(--composition-grid-line) 33.333%, var(--composition-grid-line) calc(33.333% + 1px), transparent calc(33.333% + 1px)),
+    linear-gradient(to right, transparent 66.666%, var(--composition-grid-line) 66.666%, var(--composition-grid-line) calc(66.666% + 1px), transparent calc(66.666% + 1px)),
+    linear-gradient(to bottom, transparent 33.333%, var(--composition-grid-line) 33.333%, var(--composition-grid-line) calc(33.333% + 1px), transparent calc(33.333% + 1px)),
+    linear-gradient(to bottom, transparent 66.666%, var(--composition-grid-line) 66.666%, var(--composition-grid-line) calc(66.666% + 1px), transparent calc(66.666% + 1px));
 }
 
 .preview-caption {
