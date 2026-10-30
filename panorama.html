@@ -72,15 +72,18 @@
               <input id="scale" type="range" min="0.2" max="3" step="0.01" value="1" />
             </div>
           </div>
+
+          <div class="placement-actions">
+            <button id="centerHorizontal" class="secondary" disabled>Center horizontal</button>
+            <button id="centerVertical" class="secondary" disabled>Center vertical</button>
+            <button id="reset" class="secondary" disabled>Reset placement</button>
+          </div>
         </div>
 
-        <div class="actions">
-          <button id="downloadAll" disabled>Download all frames</button>
-          <button id="downloadStrip" disabled>Download full strip</button>
-          <button id="centerHorizontal" class="secondary" disabled>Center horizontal</button>
-          <button id="centerVertical" class="secondary" disabled>Center vertical</button>
-          <button id="reset" class="secondary" disabled>Reset placement</button>
-          <button id="clear" class="secondary" disabled>Clear</button>
+        <div class="actions panorama-actions">
+          <button id="downloadAll" class="utility-button download-action" disabled>Download all frames</button>
+          <button id="downloadStrip" class="utility-button download-action" disabled>Download full strip</button>
+          <button id="clear" class="utility-button clear-action" disabled>Clear</button>
         </div>
       </section>
 
@@ -88,10 +91,13 @@
         <div class="suite-header">
           <div id="selectedMeta" class="note">No panorama selected.</div>
           <div id="itemCount" class="note">0 frames</div>
+          <button id="gridToggle" type="button" class="grid-toggle">Hide grid</button>
         </div>
         <div id="emptyState" class="note">No panorama loaded yet.</div>
         <div id="stage" class="canvas-stage hidden">
-          <canvas id="stripCanvas" width="3240" height="1350"></canvas>
+          <div class="canvas-grid-wrap cut-guides-wrap">
+            <canvas id="stripCanvas" width="3240" height="1350"></canvas>
+          </div>
         </div>
         <p class="note">Tip: drag directly on the big preview to reposition the panorama.</p>
         <div id="framesList" class="preview-list preview-strip frames-strip"></div>
