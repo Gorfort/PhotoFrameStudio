@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Resize Batch | Photo Frame Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Fraunces:opsz,wght@9..144,500;9..144,700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <nav class="top-nav">
+    <a class="brand" href="./index.html">Photo Frame Studio</a>
+    <div class="nav-links">
+      <button class="theme-toggle" data-theme-toggle type="button">Switch to dark</button>
+      <a class="nav-link active" href="./convert.html">Resize Batch</a>
+      <a class="nav-link" href="./panorama.html">Panorama Carousel</a>
+    </div>
+  </nav>
+
+  <main class="app-shell">
+    <div class="panel-grid">
+      <section class="control-panel">
+        <div class="file-toolbar">
+          <label for="fileInput" class="browse-button">Browse images</label>
+          <input id="fileInput" class="file-input visually-hidden" type="file" accept="image/jpeg,image/png,.jpg,.jpeg,.png" multiple />
+          <span id="fileNameText" class="note">No files selected.</span>
+        </div>
+        <div class="control-scroll">
+          <p id="loadStatus" class="note">Waiting for image selection.</p>
+
+          <div class="controls">
+            <div class="control-row">
+              <label for="frameWidth">Frame width</label>
+              <input id="frameWidth" type="number" min="200" max="4000" value="1080" />
+            </div>
+            <div class="control-row">
+              <label for="frameHeight">Frame height</label>
+              <input id="frameHeight" type="number" min="200" max="4000" value="1350" />
+            </div>
+            <div class="control-row">
+              <label for="marginTopBottom">Top and bottom margin</label>
+              <input id="marginTopBottom" type="number" min="0" max="500" value="20" />
+            </div>
+            <div class="control-row">
+              <label for="marginSides">Left and right minimum margin</label>
+              <input id="marginSides" type="number" min="0" max="500" value="20" />
+            </div>
+            <div class="control-row color-row">
+              <label for="bgColor">Background color</label>
+              <input id="bgColor" type="color" value="#ffffff" />
+            </div>
+            <div class="control-row">
+              <label for="frameOverlay">Frame thickness (overlay on top)</label>
+              <input id="frameOverlay" type="number" min="0" max="300" value="0" />
+            </div>
+            <div class="control-row">
+              <label for="fitMode">Fit mode</label>
+              <select id="fitMode">
+                <option value="contain" selected>Contain</option>
+                <option value="cover">Cover</option>
+              </select>
+            </div>
+            <div class="control-row">
+              <label for="offsetX">Selected image horizontal placement</label>
+              <input id="offsetX" type="range" min="-500" max="500" value="0" />
+            </div>
+            <div class="control-row">
+              <label for="offsetY">Selected image vertical placement</label>
+              <input id="offsetY" type="range" min="-500" max="500" value="0" />
+            </div>
+            <div class="control-row">
+              <label for="scale">Selected image zoom</label>
+              <input id="scale" type="range" min="0.2" max="3" step="0.01" value="1" />
+            </div>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="downloadSelected" disabled>Download selected</button>
+          <button id="downloadAll" disabled>Download all</button>
+          <button id="centerHorizontal" class="secondary" disabled>Center horizontal</button>
+          <button id="centerVertical" class="secondary" disabled>Center vertical</button>
+          <button id="resetSelected" class="secondary" disabled>Reset selected placement</button>
+          <button id="clearAll" class="secondary" disabled>Clear all</button>
+        </div>
+      </section>
+
+      <section class="preview-panel">
+        <div class="suite-header">
+          <div id="selectedMeta" class="note">No image selected.</div>
+          <div id="itemCount" class="note">0 image</div>
+        </div>
+        <div id="emptyState" class="note">No images loaded yet.</div>
+        <div class="suite-workspace">
+          <div id="activeStage" class="canvas-stage hidden">
+            <canvas id="activeCanvas" width="1080" height="1350"></canvas>
+          </div>
+          <aside class="side-gallery">
+            <div id="previewList" class="preview-list preview-stack"></div>
+          </aside>
+        </div>
+        <p class="note">Tip: drag directly on the big preview to reposition the image.</p>
+      </section>
+    </div>
+  </main>
+
+  <script src="./theme.js"></script>
+  <script src="./shared.js"></script>
+  <script src="./convert.js"></script>
+</body>
+</html>
