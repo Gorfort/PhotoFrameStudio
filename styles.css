@@ -10,6 +10,17 @@
   --radius: 16px;
   --theme-duration: 240ms;
   --theme-ease: cubic-bezier(0.25, 0.9, 0.3, 1);
+  --inspector-bg-start: #f6f2e8;
+  --inspector-bg-end: #ece6d8;
+  --inspector-border: rgba(21, 33, 31, 0.16);
+  --inspector-text: #1f2d2a;
+  --inspector-muted: #4e5f5c;
+  --inspector-input-bg: #ffffff;
+  --inspector-input-border: rgba(21, 33, 31, 0.2);
+  --inspector-input-text: #15211f;
+  --inspector-secondary-text: #1f2d2a;
+  --inspector-secondary-border: rgba(21, 33, 31, 0.2);
+  --inspector-actions-fade: rgba(236, 230, 216, 0.96);
 }
 
 [data-theme="dark"] {
@@ -21,6 +32,17 @@
   --accent-2: #42a69d;
   --line: rgba(232, 239, 233, 0.2);
   --shadow: 0 18px 36px rgba(0, 0, 0, 0.35);
+  --inspector-bg-start: #16201f;
+  --inspector-bg-end: #121a19;
+  --inspector-border: rgba(232, 239, 233, 0.14);
+  --inspector-text: #e8efe9;
+  --inspector-muted: #9fb2ac;
+  --inspector-input-bg: #0f1716;
+  --inspector-input-border: rgba(232, 239, 233, 0.2);
+  --inspector-input-text: #e8efe9;
+  --inspector-secondary-text: #dce8e4;
+  --inspector-secondary-border: rgba(232, 239, 233, 0.2);
+  --inspector-actions-fade: rgba(18, 26, 25, 0.95);
 }
 
 * {
@@ -227,9 +249,9 @@ html[data-theme-ready="true"] button {
 
 .control-panel {
   padding: 10px;
-  background: linear-gradient(180deg, #16201f 0%, #121a19 100%);
-  border-color: rgba(232, 239, 233, 0.14);
-  color: #e8efe9;
+  background: linear-gradient(180deg, var(--inspector-bg-start) 0%, var(--inspector-bg-end) 100%);
+  border-color: var(--inspector-border);
+  color: var(--inspector-text);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -250,9 +272,9 @@ html[data-theme-ready="true"] button {
   padding: 0 12px;
   height: 32px;
   border-radius: 8px;
-  border: 1px solid rgba(232, 239, 233, 0.22);
-  background: linear-gradient(180deg, #2c3b39, #22302e);
-  color: #eaf3ef;
+  border: 1px solid var(--inspector-input-border);
+  background: linear-gradient(180deg, rgba(31, 122, 114, 0.22), rgba(31, 122, 114, 0.08));
+  color: var(--inspector-text);
   font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
@@ -293,7 +315,7 @@ html[data-theme-ready="true"] button {
 
 .control-panel .note,
 .control-panel .control-row label {
-  color: #9fb2ac;
+  color: var(--inspector-muted);
 }
 
 .control-scroll {
@@ -338,12 +360,12 @@ html[data-theme-ready="true"] button {
 input[type="number"],
 select {
   width: 100%;
-  border: 1px solid rgba(232, 239, 233, 0.2);
+  border: 1px solid var(--inspector-input-border);
   border-radius: 8px;
   padding: 0 8px;
   height: 36px;
-  background: #0f1716;
-  color: #e8efe9;
+  background: var(--inspector-input-bg);
+  color: var(--inspector-input-text);
 }
 
 input[type="number"]:focus,
@@ -356,9 +378,9 @@ input[type="color"]:focus {
 input[type="color"] {
   width: 56px;
   height: 36px;
-  border: 1px solid rgba(232, 239, 233, 0.2);
+  border: 1px solid var(--inspector-input-border);
   border-radius: 8px;
-  background: #0f1716;
+  background: var(--inspector-input-bg);
   padding: 4px;
 }
 
@@ -377,8 +399,8 @@ input[type="range"] {
   gap: 6px;
   margin-top: 0;
   padding-top: 8px;
-  border-top: 1px solid rgba(232, 239, 233, 0.12);
-  background: linear-gradient(180deg, rgba(18, 26, 25, 0), rgba(18, 26, 25, 0.95) 45%);
+  border-top: 1px solid var(--inspector-border);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0), var(--inspector-actions-fade) 45%);
 }
 
 button {
@@ -394,8 +416,8 @@ button {
 
 button.secondary {
   background: transparent;
-  color: #dce8e4;
-  border-color: rgba(232, 239, 233, 0.2);
+  color: var(--inspector-secondary-text);
+  border-color: var(--inspector-secondary-border);
 }
 
 button:disabled {
