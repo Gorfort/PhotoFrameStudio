@@ -1,5 +1,5 @@
 (() => {
-const { clamp, drawImageToArea, safeNumber, setupDropzone, triggerDownloadFromCanvas } = window.PhotoUtils;
+const { clamp, drawImageToArea, safeNumber, setupDropzone, setupGridToggle, triggerDownloadFromCanvas } = window.PhotoUtils;
 
 const acceptedTypes = new Set(["image/jpeg", "image/png", "image/jpg", "image/pjpeg", "image/x-png"]);
 
@@ -13,6 +13,13 @@ function isSupportedImageFile(file) {
   return /\.(jpe?g|png)$/.test(name);
 }
 
+function buildFileKey(file) {
+  const name = String(file.name || "").toLowerCase();
+  const size = Number(file.size || 0);
+  const modified = Number(file.lastModified || 0);
+  return `${name}::${size}::${modified}`;
+}
+
 const elements = {
   dropzone: document.querySelector("#dropzone"),
   fileInput: document.querySelector("#fileInput"),
@@ -22,6 +29,7 @@ const elements = {
   activeCanvas: document.querySelector("#activeCanvas"),
   selectedMeta: document.querySelector("#selectedMeta"),
   itemCount: document.querySelector("#itemCount"),
+  gridToggle: document.querySelector("#gridToggle"),
   previewList: document.querySelector("#previewList"),
   emptyState: document.querySelector("#emptyState"),
   frameWidth: document.querySelector("#frameWidth"),
@@ -51,6 +59,16 @@ const state = {
   lastPointerY: 0
 };
 
+const defaults = {
+  frameWidth: 1080,
+  frameHeight: 1350,
+  topBottom: 20,
+  sideMargin: 20,
+  frameOverlay: 0,
+  bgColor: "#ffffff",
+  fitMode: "contain"
+};
+
 let idCounter = 1;
 
 function getConfig() {
@@ -71,15 +89,44 @@ function getConfig() {
   };
 }
 
+function getConfigForItem(item) {
+  const frameWidth = clamp(safeNumber(item?.frameWidth, defaults.frameWidth), 200, 4000);
+  const frameHeight = clamp(safeNumber(item?.frameHeight, defaults.frameHeight), 200, 4000);
+  const topBottom = clamp(safeNumber(item?.topBottom, defaults.topBottom), 0, frameHeight / 2 - 1);
+  const sideMargin = clamp(safeNumber(item?.sideMargin, defaults.sideMargin), 0, frameWidth / 2 - 1);
+  const frameOverlay = clamp(safeNumber(item?.frameOverlay, defaults.frameOverlay), 0, Math.min(frameWidth, frameHeight) / 2);
+  const bgColor = item?.bgColor || defaults.bgColor;
+  const fitMode = item?.fitMode || defaults.fitMode;
+
+  return {
+    frameWidth,
+    frameHeight,
+    topBottom,
+    sideMargin,
+    frameOverlay,
+    bgColor,
+    fitMode
+  };
+}
+
 function currentSelected() {
   return state.items.find((item) => item.id === state.selectedId) || null;
 }
 
-function createItem(file, image) {
+function createItem(file, image, fileKey) {
+  const config = getConfig();
   return {
     id: `img-${Date.now()}-${idCounter++}`,
     file,
+    fileKey,
     image,
+    frameWidth: config.frameWidth,
+    frameHeight: config.frameHeight,
+    topBottom: config.topBottom,
+    sideMargin: config.sideMargin,
+    frameOverlay: config.frameOverlay,
+    bgColor: config.bgColor,
+    fitMode: config.fitMode,
     offsetX: 0,
     offsetY: 0,
     scale: 1
@@ -134,20 +181,53 @@ async function addFiles(files) {
     return;
   }
 
+  const existingKeys = new Set(state.items.map((item) => item.fileKey));
+  const queuedKeys = new Set();
+  const filesToLoad = [];
+  let skippedDuplicates = 0;
+
+  for (const file of validFiles) {
+    const fileKey = buildFileKey(file);
+    if (existingKeys.has(fileKey) || queuedKeys.has(fileKey)) {
+      skippedDuplicates += 1;
+      continue;
+    }
+    queuedKeys.add(fileKey);
+    filesToLoad.push({ file, fileKey });
+  }
+
+  if (!filesToLoad.length) {
+    state.lastMessage = "All selected files are already loaded.";
+    if (elements.loadStatus) {
+      elements.loadStatus.textContent = skippedDuplicates > 0
+        ? `Skipped ${skippedDuplicates} duplicate file${skippedDuplicates === 1 ? "" : "s"}.`
+        : "No new files to load.";
+    }
+    if (elements.fileNameText) {
+      elements.fileNameText.textContent = "No new files selected.";
+    }
+    render();
+    return;
+  }
+
   if (elements.fileNameText) {
-    elements.fileNameText.textContent = `${validFiles.length} file${validFiles.length === 1 ? "" : "s"} selected`;
+    const skippedText = skippedDuplicates > 0
+      ? `, ${skippedDuplicates} duplicate${skippedDuplicates === 1 ? "" : "s"} skipped`
+      : "";
+    elements.fileNameText.textContent = `${filesToLoad.length} file${filesToLoad.length === 1 ? "" : "s"} selected${skippedText}`;
   }
 
   let loadedCount = 0;
   let lastLoadedId = null;
 
-  for (const file of validFiles) {
+  for (const entry of filesToLoad) {
+    const { file, fileKey } = entry;
     try {
       if (elements.loadStatus) {
         elements.loadStatus.textContent = `Loading ${file.name}...`;
       }
       const image = await loadImageFromFile(file);
-      const item = createItem(file, image);
+      const item = createItem(file, image, fileKey);
       state.items.push(item);
       lastLoadedId = item.id;
       loadedCount += 1;
@@ -160,7 +240,10 @@ async function addFiles(files) {
     state.selectedId = lastLoadedId;
     state.lastMessage = "";
     if (elements.loadStatus) {
-      elements.loadStatus.textContent = `Loaded ${loadedCount} image${loadedCount === 1 ? "" : "s"}.`;
+      const skippedText = skippedDuplicates > 0
+        ? ` Skipped ${skippedDuplicates} duplicate${skippedDuplicates === 1 ? "" : "s"}.`
+        : "";
+      elements.loadStatus.textContent = `Loaded ${loadedCount} image${loadedCount === 1 ? "" : "s"}.${skippedText}`;
     }
   } else {
     state.lastMessage = "Could not decode this image in Firefox. Try saving as JPG or PNG and retry.";
@@ -173,7 +256,7 @@ async function addFiles(files) {
 }
 
 function drawOutput(item, canvas) {
-  const config = getConfig();
+  const config = getConfigForItem(item);
   const innerHeight = Math.max(1, config.frameHeight - config.topBottom * 2);
   const contentMaxWidth = Math.max(1, config.frameWidth - config.sideMargin * 2);
   const contentArea = {
@@ -221,6 +304,13 @@ function syncSelectedControls() {
   const selected = currentSelected();
   const disabled = !selected;
 
+  elements.frameWidth.disabled = disabled;
+  elements.frameHeight.disabled = disabled;
+  elements.marginTopBottom.disabled = disabled;
+  elements.marginSides.disabled = disabled;
+  elements.bgColor.disabled = disabled;
+  elements.frameOverlay.disabled = disabled;
+  elements.fitMode.disabled = disabled;
   elements.offsetX.disabled = disabled;
   elements.offsetY.disabled = disabled;
   elements.scale.disabled = disabled;
@@ -233,6 +323,13 @@ function syncSelectedControls() {
     return;
   }
 
+  elements.frameWidth.value = String(Math.round(selected.frameWidth));
+  elements.frameHeight.value = String(Math.round(selected.frameHeight));
+  elements.marginTopBottom.value = String(Math.round(selected.topBottom));
+  elements.marginSides.value = String(Math.round(selected.sideMargin));
+  elements.bgColor.value = selected.bgColor;
+  elements.frameOverlay.value = String(Math.round(selected.frameOverlay));
+  elements.fitMode.value = selected.fitMode;
   elements.offsetX.value = String(selected.offsetX);
   elements.offsetY.value = String(selected.offsetY);
   elements.scale.value = String(selected.scale);
@@ -252,7 +349,7 @@ function render() {
   const selected = currentSelected();
   if (selected) {
     drawOutput(selected, elements.activeCanvas);
-    elements.selectedMeta.textContent = `${selected.file.name} · ${Math.round(selected.scale * 100)}% zoom · X ${Math.round(selected.offsetX)} · Y ${Math.round(selected.offsetY)}`;
+    elements.selectedMeta.textContent = `${selected.file.name} · ${Math.round(selected.frameWidth)}x${Math.round(selected.frameHeight)} · ${Math.round(selected.scale * 100)}% zoom · X ${Math.round(selected.offsetX)} · Y ${Math.round(selected.offsetY)}`;
   } else {
     elements.selectedMeta.textContent = "No image selected.";
   }
@@ -267,11 +364,15 @@ function render() {
     const canvas = document.createElement("canvas");
     drawOutput(item, canvas);
 
+    const canvasWrap = document.createElement("div");
+    canvasWrap.className = "preview-canvas-wrap";
+    canvasWrap.append(canvas);
+
     const caption = document.createElement("div");
     caption.className = "preview-caption";
     caption.textContent = item.file.name;
 
-    wrapper.append(canvas, caption);
+    wrapper.append(canvasWrap, caption);
     wrapper.addEventListener("click", () => {
       state.selectedId = item.id;
       syncSelectedControls();
@@ -285,11 +386,10 @@ function render() {
 }
 
 function bindEvents() {
+  setupGridToggle(elements.gridToggle);
   setupDropzone(elements.dropzone, elements.fileInput, addFiles);
 
   const sharedInputs = [
-    elements.frameWidth,
-    elements.frameHeight,
     elements.marginTopBottom,
     elements.marginSides,
     elements.bgColor,
@@ -297,8 +397,51 @@ function bindEvents() {
     elements.fitMode
   ];
   for (const input of sharedInputs) {
-    input.addEventListener("input", render);
+    input.addEventListener("input", () => {
+      const selected = currentSelected();
+      if (!selected) {
+        return;
+      }
+
+      selected.topBottom = clamp(safeNumber(elements.marginTopBottom.value, selected.topBottom), 0, selected.frameHeight / 2 - 1);
+      selected.sideMargin = clamp(safeNumber(elements.marginSides.value, selected.sideMargin), 0, selected.frameWidth / 2 - 1);
+      selected.frameOverlay = clamp(safeNumber(elements.frameOverlay.value, selected.frameOverlay), 0, Math.min(selected.frameWidth, selected.frameHeight) / 2);
+      selected.bgColor = elements.bgColor.value || defaults.bgColor;
+      selected.fitMode = elements.fitMode.value || defaults.fitMode;
+
+      elements.marginTopBottom.value = String(Math.round(selected.topBottom));
+      elements.marginSides.value = String(Math.round(selected.sideMargin));
+      elements.frameOverlay.value = String(Math.round(selected.frameOverlay));
+      elements.bgColor.value = selected.bgColor;
+      elements.fitMode.value = selected.fitMode;
+
+      render();
+    });
   }
+
+  elements.frameWidth.addEventListener("input", () => {
+    const selected = currentSelected();
+    if (!selected) {
+      return;
+    }
+    selected.frameWidth = clamp(safeNumber(elements.frameWidth.value, selected.frameWidth), 200, 4000);
+    selected.sideMargin = clamp(selected.sideMargin, 0, selected.frameWidth / 2 - 1);
+    selected.frameOverlay = clamp(selected.frameOverlay, 0, Math.min(selected.frameWidth, selected.frameHeight) / 2);
+    elements.frameWidth.value = String(Math.round(selected.frameWidth));
+    render();
+  });
+
+  elements.frameHeight.addEventListener("input", () => {
+    const selected = currentSelected();
+    if (!selected) {
+      return;
+    }
+    selected.frameHeight = clamp(safeNumber(elements.frameHeight.value, selected.frameHeight), 200, 4000);
+    selected.topBottom = clamp(selected.topBottom, 0, selected.frameHeight / 2 - 1);
+    selected.frameOverlay = clamp(selected.frameOverlay, 0, Math.min(selected.frameWidth, selected.frameHeight) / 2);
+    elements.frameHeight.value = String(Math.round(selected.frameHeight));
+    render();
+  });
 
   elements.offsetX.addEventListener("input", () => {
     const selected = currentSelected();
