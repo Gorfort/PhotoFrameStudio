@@ -76,10 +76,59 @@ function setupDropzone(dropzone, fileInput, onFiles) {
   });
 }
 
+let memoryGridPreference = null;
+
+function setupGridToggle(toggleButton, options = {}) {
+  if (!toggleButton) {
+    return;
+  }
+
+  const storageKey = options.storageKey || "photo-frame-studio-grid-visible";
+  const root = document.documentElement;
+
+  const readPreference = () => {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (raw === "on" || raw === "off") {
+        return raw;
+      }
+    } catch {
+      if (memoryGridPreference === "on" || memoryGridPreference === "off") {
+        return memoryGridPreference;
+      }
+    }
+    return "on";
+  };
+
+  const writePreference = (value) => {
+    memoryGridPreference = value;
+    try {
+      localStorage.setItem(storageKey, value);
+    } catch {
+      // Ignore storage failures.
+    }
+  };
+
+  const apply = (value) => {
+    const normalized = value === "off" ? "off" : "on";
+    root.setAttribute("data-composition-grid", normalized);
+    writePreference(normalized);
+    toggleButton.textContent = normalized === "on" ? "Hide grid" : "Show grid";
+    toggleButton.setAttribute("aria-pressed", String(normalized === "on"));
+  };
+
+  apply(readPreference());
+  toggleButton.addEventListener("click", () => {
+    const current = root.getAttribute("data-composition-grid") === "off" ? "off" : "on";
+    apply(current === "on" ? "off" : "on");
+  });
+}
+
 window.PhotoUtils = {
   clamp,
   drawImageToArea,
   triggerDownloadFromCanvas,
   safeNumber,
-  setupDropzone
+  setupDropzone,
+  setupGridToggle
 };
