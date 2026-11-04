@@ -575,6 +575,26 @@ input[type="color"] {
   align-items: start;
 }
 
+.color-lock-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.edge-lock-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--inspector-muted);
+  white-space: nowrap;
+}
+
+.edge-lock-inline input[type="checkbox"] {
+  margin: 0;
+}
+
 input[type="range"] {
   width: 100%;
   height: 20px;

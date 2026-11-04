@@ -1,5 +1,5 @@
 (() => {
-const { clamp, drawImageToArea, safeNumber, setupDropzone, setupGridToggle, triggerDownloadFromCanvas } = window.PhotoUtils;
+const { clamp, clampOffsetsToArea, drawImageToArea, safeNumber, setupDropzone, setupGridToggle, triggerDownloadFromCanvas } = window.PhotoUtils;
 
 const acceptedTypes = new Set(["image/jpeg", "image/png", "image/jpg", "image/pjpeg", "image/x-png"]);
 
@@ -37,11 +37,13 @@ const elements = {
   marginTopBottom: document.querySelector("#marginTopBottom"),
   marginSides: document.querySelector("#marginSides"),
   bgColor: document.querySelector("#bgColor"),
-  frameOverlay: document.querySelector("#frameOverlay"),
   fitMode: document.querySelector("#fitMode"),
   offsetX: document.querySelector("#offsetX"),
   offsetY: document.querySelector("#offsetY"),
   scale: document.querySelector("#scale"),
+  edgeLock: document.querySelector("#edgeLock"),
+  exportFormat: document.querySelector("#exportFormat"),
+  jpegQuality: document.querySelector("#jpegQuality"),
   downloadSelected: document.querySelector("#downloadSelected"),
   downloadAll: document.querySelector("#downloadAll"),
   centerHorizontal: document.querySelector("#centerHorizontal"),
@@ -64,9 +66,9 @@ const defaults = {
   frameHeight: 1350,
   topBottom: 20,
   sideMargin: 20,
-  frameOverlay: 0,
   bgColor: "#ffffff",
-  fitMode: "contain"
+  fitMode: "contain",
+  edgeLock: false
 };
 
 let idCounter = 1;
@@ -76,16 +78,15 @@ function getConfig() {
   const frameHeight = clamp(safeNumber(elements.frameHeight.value, 1350), 200, 4000);
   const topBottom = clamp(safeNumber(elements.marginTopBottom.value, 20), 0, frameHeight / 2 - 1);
   const sideMargin = clamp(safeNumber(elements.marginSides.value, 20), 0, frameWidth / 2 - 1);
-  const frameOverlay = clamp(safeNumber(elements.frameOverlay.value, 0), 0, Math.min(frameWidth, frameHeight) / 2);
 
   return {
     frameWidth,
     frameHeight,
     topBottom,
     sideMargin,
-    frameOverlay,
     bgColor: elements.bgColor.value || "#ffffff",
-    fitMode: elements.fitMode.value || "contain"
+    fitMode: elements.fitMode.value || "contain",
+    edgeLock: Boolean(elements.edgeLock?.checked)
   };
 }
 
@@ -94,19 +95,44 @@ function getConfigForItem(item) {
   const frameHeight = clamp(safeNumber(item?.frameHeight, defaults.frameHeight), 200, 4000);
   const topBottom = clamp(safeNumber(item?.topBottom, defaults.topBottom), 0, frameHeight / 2 - 1);
   const sideMargin = clamp(safeNumber(item?.sideMargin, defaults.sideMargin), 0, frameWidth / 2 - 1);
-  const frameOverlay = clamp(safeNumber(item?.frameOverlay, defaults.frameOverlay), 0, Math.min(frameWidth, frameHeight) / 2);
   const bgColor = item?.bgColor || defaults.bgColor;
   const fitMode = item?.fitMode || defaults.fitMode;
+  const edgeLock = Boolean(item?.edgeLock);
 
   return {
     frameWidth,
     frameHeight,
     topBottom,
     sideMargin,
-    frameOverlay,
     bgColor,
-    fitMode
+    fitMode,
+    edgeLock
   };
+}
+
+function getExportSettings() {
+  const formatValue = String(elements.exportFormat?.value || "auto").toLowerCase();
+  const jpegQuality = clamp(safeNumber(elements.jpegQuality?.value, 96), 70, 100);
+  if (elements.jpegQuality) {
+    elements.jpegQuality.value = String(Math.round(jpegQuality));
+  }
+
+  return {
+    format: formatValue === "png" || formatValue === "jpeg" ? formatValue : "auto",
+    quality: jpegQuality / 100
+  };
+}
+
+function resolveExportTarget(originalFileName) {
+  const settings = getExportSettings();
+  const lowerName = String(originalFileName || "").toLowerCase();
+  const sourceIsPng = lowerName.endsWith(".png");
+
+  if (settings.format === "png" || (settings.format === "auto" && sourceIsPng)) {
+    return { extension: "png", mime: "image/png", quality: settings.quality };
+  }
+
+  return { extension: "jpg", mime: "image/jpeg", quality: settings.quality };
 }
 
 function currentSelected() {
@@ -124,9 +150,9 @@ function createItem(file, image, fileKey) {
     frameHeight: config.frameHeight,
     topBottom: config.topBottom,
     sideMargin: config.sideMargin,
-    frameOverlay: config.frameOverlay,
     bgColor: config.bgColor,
     fitMode: config.fitMode,
+    edgeLock: config.edgeLock,
     offsetX: 0,
     offsetY: 0,
     scale: 1
@@ -273,31 +299,27 @@ function drawOutput(item, canvas) {
   ctx.fillStyle = config.bgColor;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+  const drawOptions = {
+    fitMode: config.fitMode,
+    scale: item.scale,
+    offsetX: item.offsetX,
+    offsetY: item.offsetY
+  };
+
+  if (config.edgeLock) {
+    const clampedOffsets = clampOffsetsToArea(item.image, contentArea, drawOptions);
+    drawOptions.offsetX = clampedOffsets.offsetX;
+    drawOptions.offsetY = clampedOffsets.offsetY;
+    item.offsetX = clampedOffsets.offsetX;
+    item.offsetY = clampedOffsets.offsetY;
+  }
+
   ctx.save();
   ctx.beginPath();
   ctx.rect(contentArea.x, contentArea.y, contentArea.width, contentArea.height);
   ctx.clip();
-  drawImageToArea(
-    ctx,
-    item.image,
-    contentArea,
-    {
-      fitMode: config.fitMode,
-      scale: item.scale,
-      offsetX: item.offsetX,
-      offsetY: item.offsetY
-    }
-  );
+  drawImageToArea(ctx, item.image, contentArea, drawOptions);
   ctx.restore();
-
-  if (config.frameOverlay > 0) {
-    const thickness = Math.floor(config.frameOverlay);
-    ctx.fillStyle = config.bgColor;
-    ctx.fillRect(0, 0, config.frameWidth, thickness);
-    ctx.fillRect(0, config.frameHeight - thickness, config.frameWidth, thickness);
-    ctx.fillRect(0, 0, thickness, config.frameHeight);
-    ctx.fillRect(config.frameWidth - thickness, 0, thickness, config.frameHeight);
-  }
 }
 
 function syncSelectedControls() {
@@ -309,11 +331,11 @@ function syncSelectedControls() {
   elements.marginTopBottom.disabled = disabled;
   elements.marginSides.disabled = disabled;
   elements.bgColor.disabled = disabled;
-  elements.frameOverlay.disabled = disabled;
   elements.fitMode.disabled = disabled;
   elements.offsetX.disabled = disabled;
   elements.offsetY.disabled = disabled;
   elements.scale.disabled = disabled;
+  elements.edgeLock.disabled = disabled;
   elements.resetSelected.disabled = disabled;
   elements.centerHorizontal.disabled = disabled;
   elements.centerVertical.disabled = disabled;
@@ -328,11 +350,11 @@ function syncSelectedControls() {
   elements.marginTopBottom.value = String(Math.round(selected.topBottom));
   elements.marginSides.value = String(Math.round(selected.sideMargin));
   elements.bgColor.value = selected.bgColor;
-  elements.frameOverlay.value = String(Math.round(selected.frameOverlay));
   elements.fitMode.value = selected.fitMode;
   elements.offsetX.value = String(selected.offsetX);
   elements.offsetY.value = String(selected.offsetY);
   elements.scale.value = String(selected.scale);
+  elements.edgeLock.checked = Boolean(selected.edgeLock);
 }
 
 function render() {
@@ -393,7 +415,6 @@ function bindEvents() {
     elements.marginTopBottom,
     elements.marginSides,
     elements.bgColor,
-    elements.frameOverlay,
     elements.fitMode
   ];
   for (const input of sharedInputs) {
@@ -405,19 +426,32 @@ function bindEvents() {
 
       selected.topBottom = clamp(safeNumber(elements.marginTopBottom.value, selected.topBottom), 0, selected.frameHeight / 2 - 1);
       selected.sideMargin = clamp(safeNumber(elements.marginSides.value, selected.sideMargin), 0, selected.frameWidth / 2 - 1);
-      selected.frameOverlay = clamp(safeNumber(elements.frameOverlay.value, selected.frameOverlay), 0, Math.min(selected.frameWidth, selected.frameHeight) / 2);
       selected.bgColor = elements.bgColor.value || defaults.bgColor;
       selected.fitMode = elements.fitMode.value || defaults.fitMode;
 
       elements.marginTopBottom.value = String(Math.round(selected.topBottom));
       elements.marginSides.value = String(Math.round(selected.sideMargin));
-      elements.frameOverlay.value = String(Math.round(selected.frameOverlay));
       elements.bgColor.value = selected.bgColor;
       elements.fitMode.value = selected.fitMode;
 
       render();
     });
   }
+
+  elements.edgeLock.addEventListener("change", () => {
+    const selected = currentSelected();
+    if (!selected) {
+      return;
+    }
+    selected.edgeLock = Boolean(elements.edgeLock.checked);
+    render();
+  });
+
+  const onExportInput = () => {
+    getExportSettings();
+  };
+  elements.exportFormat.addEventListener("input", onExportInput);
+  elements.jpegQuality.addEventListener("input", onExportInput);
 
   elements.frameWidth.addEventListener("input", () => {
     const selected = currentSelected();
@@ -426,7 +460,6 @@ function bindEvents() {
     }
     selected.frameWidth = clamp(safeNumber(elements.frameWidth.value, selected.frameWidth), 200, 4000);
     selected.sideMargin = clamp(selected.sideMargin, 0, selected.frameWidth / 2 - 1);
-    selected.frameOverlay = clamp(selected.frameOverlay, 0, Math.min(selected.frameWidth, selected.frameHeight) / 2);
     elements.frameWidth.value = String(Math.round(selected.frameWidth));
     render();
   });
@@ -438,7 +471,6 @@ function bindEvents() {
     }
     selected.frameHeight = clamp(safeNumber(elements.frameHeight.value, selected.frameHeight), 200, 4000);
     selected.topBottom = clamp(selected.topBottom, 0, selected.frameHeight / 2 - 1);
-    selected.frameOverlay = clamp(selected.frameOverlay, 0, Math.min(selected.frameWidth, selected.frameHeight) / 2);
     elements.frameHeight.value = String(Math.round(selected.frameHeight));
     render();
   });
@@ -513,18 +545,18 @@ function bindEvents() {
     }
     const canvas = document.createElement("canvas");
     drawOutput(selected, canvas);
-    const extension = selected.file.name.toLowerCase().endsWith(".png") ? "png" : "jpg";
+    const target = resolveExportTarget(selected.file.name);
     const baseName = selected.file.name.replace(/\.[^.]+$/, "");
-    triggerDownloadFromCanvas(canvas, `${baseName}-framed.${extension}`, extension === "png" ? "image/png" : "image/jpeg");
+    triggerDownloadFromCanvas(canvas, `${baseName}-framed.${target.extension}`, target.mime, { quality: target.quality });
   });
 
   elements.downloadAll.addEventListener("click", () => {
     for (const item of state.items) {
       const canvas = document.createElement("canvas");
       drawOutput(item, canvas);
-      const extension = item.file.name.toLowerCase().endsWith(".png") ? "png" : "jpg";
+      const target = resolveExportTarget(item.file.name);
       const baseName = item.file.name.replace(/\.[^.]+$/, "");
-      triggerDownloadFromCanvas(canvas, `${baseName}-framed.${extension}`, extension === "png" ? "image/png" : "image/jpeg");
+      triggerDownloadFromCanvas(canvas, `${baseName}-framed.${target.extension}`, target.mime, { quality: target.quality });
     }
   });
 

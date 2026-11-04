@@ -1,5 +1,5 @@
 (() => {
-const { clamp, drawImageToArea, safeNumber, setupDropzone, setupGridToggle, triggerDownloadFromCanvas } = window.PhotoUtils;
+const { clamp, clampOffsetsToArea, drawImageToArea, safeNumber, setupDropzone, setupGridToggle, triggerDownloadFromCanvas } = window.PhotoUtils;
 
 const acceptedTypes = new Set(["image/jpeg", "image/png", "image/jpg", "image/pjpeg", "image/x-png"]);
 
@@ -41,6 +41,9 @@ const elements = {
   offsetX: document.querySelector("#offsetX"),
   offsetY: document.querySelector("#offsetY"),
   scale: document.querySelector("#scale"),
+  edgeLock: document.querySelector("#edgeLock"),
+  exportFormat: document.querySelector("#exportFormat"),
+  jpegQuality: document.querySelector("#jpegQuality"),
   downloadAll: document.querySelector("#downloadAll"),
   downloadStrip: document.querySelector("#downloadStrip"),
   centerHorizontal: document.querySelector("#centerHorizontal"),
@@ -56,6 +59,7 @@ const state = {
   offsetX: 0,
   offsetY: 0,
   scale: 1,
+  edgeLock: false,
   lastMessage: "",
   dragging: false,
   lastPointerX: 0,
@@ -74,8 +78,34 @@ function getConfig() {
     numFrames,
     border,
     bgColor: elements.bgColor.value || "#ffffff",
-    fitMode: elements.fitMode.value || "cover"
+    fitMode: elements.fitMode.value || "cover",
+    edgeLock: Boolean(elements.edgeLock?.checked)
   };
+}
+
+function getExportSettings() {
+  const formatValue = String(elements.exportFormat?.value || "auto").toLowerCase();
+  const jpegQuality = clamp(safeNumber(elements.jpegQuality?.value, 96), 70, 100);
+  if (elements.jpegQuality) {
+    elements.jpegQuality.value = String(Math.round(jpegQuality));
+  }
+
+  return {
+    format: formatValue === "png" || formatValue === "jpeg" ? formatValue : "auto",
+    quality: jpegQuality / 100
+  };
+}
+
+function resolveExportTarget(originalFileName) {
+  const settings = getExportSettings();
+  const lowerName = String(originalFileName || "").toLowerCase();
+  const sourceIsPng = lowerName.endsWith(".png");
+
+  if (settings.format === "png" || (settings.format === "auto" && sourceIsPng)) {
+    return { extension: "png", mime: "image/png", quality: settings.quality };
+  }
+
+  return { extension: "jpg", mime: "image/jpeg", quality: settings.quality };
 }
 
 function loadImageFromSource(src) {
@@ -199,21 +229,26 @@ function drawStrip(canvas) {
     return;
   }
 
+  const drawOptions = {
+    fitMode: config.fitMode,
+    scale: state.scale,
+    offsetX: state.offsetX,
+    offsetY: state.offsetY
+  };
+
+  if (config.edgeLock) {
+    const clampedOffsets = clampOffsetsToArea(state.image, contentArea, drawOptions);
+    drawOptions.offsetX = clampedOffsets.offsetX;
+    drawOptions.offsetY = clampedOffsets.offsetY;
+    state.offsetX = clampedOffsets.offsetX;
+    state.offsetY = clampedOffsets.offsetY;
+  }
+
   ctx.save();
   ctx.beginPath();
   ctx.rect(contentArea.x, contentArea.y, contentArea.width, contentArea.height);
   ctx.clip();
-  drawImageToArea(
-    ctx,
-    state.image,
-    contentArea,
-    {
-      fitMode: config.fitMode,
-      scale: state.scale,
-      offsetX: state.offsetX,
-      offsetY: state.offsetY
-    }
-  );
+  drawImageToArea(ctx, state.image, contentArea, drawOptions);
   ctx.restore();
 }
 
@@ -282,11 +317,16 @@ function render() {
   elements.offsetX.disabled = !hasImage;
   elements.offsetY.disabled = !hasImage;
   elements.scale.disabled = !hasImage;
+  elements.edgeLock.disabled = !hasImage;
 
   if (hasImage) {
+    elements.offsetX.value = String(Math.round(state.offsetX));
+    elements.offsetY.value = String(Math.round(state.offsetY));
+    elements.edgeLock.checked = config.edgeLock;
     elements.selectedMeta.textContent = `${state.imageFile?.name || "panorama"} · ${Math.round(state.scale * 100)}% zoom · X ${Math.round(state.offsetX)} · Y ${Math.round(state.offsetY)}`;
     elements.itemCount.textContent = `${config.numFrames} frame${config.numFrames === 1 ? "" : "s"}`;
   } else {
+    elements.edgeLock.checked = false;
     elements.selectedMeta.textContent = "No panorama selected.";
     elements.itemCount.textContent = "0 frames";
   }
@@ -304,11 +344,18 @@ function bindEvents() {
     elements.numFrames,
     elements.border,
     elements.bgColor,
-    elements.fitMode
+    elements.fitMode,
+    elements.edgeLock
   ];
   for (const input of sharedInputs) {
     input.addEventListener("input", render);
   }
+
+  const onExportInput = () => {
+    getExportSettings();
+  };
+  elements.exportFormat.addEventListener("input", onExportInput);
+  elements.jpegQuality.addEventListener("input", onExportInput);
 
   elements.offsetX.addEventListener("input", () => {
     state.offsetX = safeNumber(elements.offsetX.value, 0);
@@ -366,12 +413,13 @@ function bindEvents() {
     if (!state.image) {
       return;
     }
-    const extension = state.imageFile?.name.toLowerCase().endsWith(".png") ? "png" : "jpg";
+    const target = resolveExportTarget(state.imageFile?.name || "");
     const baseName = (state.imageFile?.name || "panorama").replace(/\.[^.]+$/, "");
     triggerDownloadFromCanvas(
       elements.stripCanvas,
-      `${baseName}-strip.${extension}`,
-      extension === "png" ? "image/png" : "image/jpeg"
+      `${baseName}-strip.${target.extension}`,
+      target.mime,
+      { quality: target.quality }
     );
   });
 
@@ -381,15 +429,16 @@ function bindEvents() {
     }
 
     const config = getConfig();
-    const extension = state.imageFile?.name.toLowerCase().endsWith(".png") ? "png" : "jpg";
+    const target = resolveExportTarget(state.imageFile?.name || "");
     const baseName = (state.imageFile?.name || "panorama").replace(/\.[^.]+$/, "");
 
     for (let index = 0; index < config.numFrames; index += 1) {
       const frameCanvas = sliceFrame(index);
       triggerDownloadFromCanvas(
         frameCanvas,
-        `${baseName}-${index + 1}.${extension}`,
-        extension === "png" ? "image/png" : "image/jpeg"
+        `${baseName}-${index + 1}.${target.extension}`,
+        target.mime,
+        { quality: target.quality }
       );
     }
   });
