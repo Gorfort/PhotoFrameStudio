@@ -963,17 +963,31 @@ html[data-composition-grid="off"] .preview-canvas-wrap::after {
     gap: 8px;
   }
 
+  .suite-workspace {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
   .side-gallery {
+    margin-top: auto;
+    border: 0;
+    border-top: 1px solid var(--line);
+    border-radius: 0;
+    padding: 6px 2px 2px;
+    background: transparent;
     max-height: none;
     overflow-x: auto;
     overflow-y: hidden;
   }
 
-  .side-gallery .preview-stack {
+  .side-gallery .preview-list {
     grid-auto-flow: column;
     grid-auto-columns: minmax(132px, 166px);
     grid-template-columns: none;
     align-items: start;
+    align-content: normal;
+    gap: 7px;
     scroll-snap-type: x proximity;
   }
 
