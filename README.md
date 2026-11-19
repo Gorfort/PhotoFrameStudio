@@ -1,6 +1,6 @@
 # Photo Frame Studio
 
-A desktop-first web app for preparing images for social posts, powered by your original ImageMagick scripts but with a visual editor.
+A responsive web app for preparing images for social posts, powered by your original ImageMagick scripts but with a visual editor.
 
 ## What it does
 
@@ -26,7 +26,7 @@ This project includes two editing pages:
   - `convert.sh`
   - `panorama.sh`
 - Theme switch (light/dark), persisted locally
-- Desktop-focused editing layout
+- Responsive editing layout (desktop, tablet, iPhone, Android)
 
 ## Quick start
 
@@ -85,7 +85,7 @@ panorama.sh         Original panorama shell script
 
 ## Browser notes
 
-- Optimized for desktop usage.
+- Responsive on desktop and mobile (iPhone/Android).
 - Works in Firefox, Chrome, and Edge.
 - If image loading behaves oddly, use the local server method above.
 
